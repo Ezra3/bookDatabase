@@ -278,6 +278,16 @@ button:hover {
   margin-bottom: 14px;
 }
 
+.rating-row {
+  margin-bottom: 12px;
+}
+
+.stars {
+  color: #fbbf24;
+  letter-spacing: 0.08em;
+  font-size: 1rem;
+}
+
 .type-pill {
   padding: 7px 11px;
   color: #ddd6fe;

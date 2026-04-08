@@ -193,6 +193,12 @@
       return type === "movie" ? "Director" : "Author";
     }
 
+    function buildStars(review) {
+      const filledStars = Math.round(review / 2);
+      const emptyStars = 5 - filledStars;
+      return `${"★".repeat(filledStars)}${"☆".repeat(emptyStars)}`;
+    }
+
     function updateCreatorField() {
       const label = personLabel(typeInput.value);
       creatorLabel.firstChild.textContent = label;
@@ -230,6 +236,9 @@
           <div class="card-top">
             <span class="${pillClass}">${formatType(entry.type)}</span>
             <span class="score">${entry.review}/10</span>
+          </div>
+          <div class="rating-row">
+            <span class="stars" aria-label="Rating ${entry.review} out of 10">${buildStars(entry.review)}</span>
           </div>
           <h3>${entry.title}</h3>
           <p><strong>Genre:</strong> ${entry.genre}</p>
