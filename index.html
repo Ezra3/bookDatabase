@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Book Database</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="page-shell">
+    <header class="hero">
+      <p class="eyebrow">Media Review Tracker</p>
+      <h1>Book and Movie Database</h1>
+      <p class="hero-copy">
+        A clean frontend for managing books and movies, matching the add, search, edit,
+        and show-all flow in the current Python project.
+      </p>
+    </header>
+
+    <main class="layout">
+      <section class="panel panel-accent">
+        <div class="panel-heading">
+          <h2>Add Entry</h2>
+          <span class="badge">Form</span>
+        </div>
+
+        <form class="entry-form" id="add-entry-form">
+          <label>
+            Type
+            <select id="entry-type" name="type">
+              <option value="book">Book</option>
+              <option value="movie">Movie</option>
+            </select>
+          </label>
+
+          <label>
+            Title
+            <input id="entry-title" name="title" type="text" placeholder="Enter a title">
+          </label>
+
+          <label>
+            Genre
+            <input id="entry-genre" name="genre" type="text" placeholder="Enter a genre">
+          </label>
+
+          <label>
+            Review out of 10
+            <input id="entry-review" name="review" type="number" min="0" max="10" placeholder="0 - 10">
+          </label>
+
+          <label id="creator-label" for="entry-creator">
+            Author
+            <input id="entry-creator" name="creator" type="text" placeholder="Enter author name">
+          </label>
+
+          <button type="submit">Save Entry</button>
+        </form>
+
+        <p class="status-message" id="add-status" aria-live="polite"></p>
+      </section>
+
+      <section class="panel">
+        <div class="panel-heading">
+          <h2>Search Entry</h2>
+          <span class="badge">Lookup</span>
+        </div>
+
+        <form class="search-bar" id="search-form">
+          <input id="search-title" type="text" placeholder="Search by exact title">
+          <button type="submit">Search</button>
+        </form>
+
+        <div class="saved-list-wrap">
+          <h3>Saved Entries</h3>
+          <div class="saved-entry-list" id="saved-entry-list"></div>
+        </div>
+
+        <div class="result-card muted-card" id="search-result" aria-live="polite">
+          <h3>Search for a title</h3>
+          <p>Results will appear here.</p>
+        </div>
+
+        <div class="action-row hidden" id="search-actions">
+          <button type="button" id="open-search-edit">Edit Entry</button>
+          <button type="button" id="delete-entry" class="danger-button">Delete Entry</button>
+        </div>
+
+        <form class="entry-form compact-grid hidden" id="edit-form">
+          <label>
+            New title
+            <input id="edit-title" type="text" placeholder="Update the title">
+          </label>
+
+          <label>
+            New genre
+            <input id="edit-genre" type="text" placeholder="Update the genre">
+          </label>
+
+          <label>
+            New review
+            <input id="edit-review" type="number" min="0" max="10" placeholder="0 - 10">
+          </label>
+
+          <label>
+            New author / director
+            <input id="edit-creator" type="text" placeholder="Update the author or director">
+          </label>
+
+          <button type="submit">Update Entry</button>
+        </form>
+
+        <p class="status-message" id="edit-status" aria-live="polite"></p>
+      </section>
+
+      <section class="panel full-width">
+        <div class="panel-heading">
+          <h2>All Stored Entries</h2>
+          <span class="badge">Collection</span>
+        </div>
+
+        <div class="cards" id="entries-list"></div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const STORAGE_KEY = "mediaEntries";
+    const defaultEntries = [
+      {
+        type: "book",
+        title: "asdf",
+        genre: "asdf",
+        review: 5,
+        creator: "asdf"
+      }
+    ];
+
+    const addForm = document.getElementById("add-entry-form");
+    const typeInput = document.getElementById("entry-type");
+    const titleInput = document.getElementById("entry-title");
+    const genreInput = document.getElementById("entry-genre");
+    const reviewInput = document.getElementById("entry-review");
+    const creatorInput = document.getElementById("entry-creator");
+    const creatorLabel = document.getElementById("creator-label");
+    const addStatus = document.getElementById("add-status");
+
+    const searchForm = document.getElementById("search-form");
+    const searchTitleInput = document.getElementById("search-title");
+    const searchResult = document.getElementById("search-result");
+    const searchActions = document.getElementById("search-actions");
+    const openSearchEditButton = document.getElementById("open-search-edit");
+    const deleteEntryButton = document.getElementById("delete-entry");
+    const savedEntryList = document.getElementById("saved-entry-list");
+
+    const editForm = document.getElementById("edit-form");
+    const editTitleInput = document.getElementById("edit-title");
+    const editGenreInput = document.getElementById("edit-genre");
+    const editReviewInput = document.getElementById("edit-review");
+    const editCreatorInput = document.getElementById("edit-creator");
+    const editStatus = document.getElementById("edit-status");
+
+    const entriesList = document.getElementById("entries-list");
+
+    let entries = loadEntries();
+    let selectedEntryIndex = -1;
+
+    function loadEntries() {
+      const storedEntries = localStorage.getItem(STORAGE_KEY);
+
+      if (!storedEntries) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultEntries));
+        return [...defaultEntries];
+      }
+
+      try {
+        const parsedEntries = JSON.parse(storedEntries);
+        return Array.isArray(parsedEntries) ? parsedEntries : [...defaultEntries];
+      } catch (error) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultEntries));
+        return [...defaultEntries];
+      }
+    }
+
+    function saveEntries() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+    }
+
+    function formatType(type) {
+      return type.charAt(0).toUpperCase() + type.slice(1);
+    }
+
+    function personLabel(type) {
+      return type === "movie" ? "Director" : "Author";
+    }
+
+    function updateCreatorField() {
+      const label = personLabel(typeInput.value);
+      creatorLabel.firstChild.textContent = label;
+      creatorInput.placeholder = `Enter ${label.toLowerCase()} name`;
+    }
+
+    function renderEntries() {
+      entriesList.innerHTML = "";
+      savedEntryList.innerHTML = "";
+
+      if (!entries.length) {
+        entriesList.innerHTML = `
+          <article class="media-card placeholder-card">
+            <div class="card-top">
+              <span class="type-pill alt">Empty</span>
+              <span class="score empty">--/10</span>
+            </div>
+            <h3>No entries yet</h3>
+            <p>Add a book or movie from the form above.</p>
+          </article>
+        `;
+
+        savedEntryList.innerHTML = '<p class="empty-saved-list">No saved entries yet.</p>';
+        return;
+      }
+
+      entries.forEach((entry, index) => {
+        const card = document.createElement("article");
+        card.className = "media-card";
+
+        const pillClass = entry.type === "movie" ? "type-pill alt" : "type-pill";
+        const label = personLabel(entry.type);
+
+        card.innerHTML = `
+          <div class="card-top">
+            <span class="${pillClass}">${formatType(entry.type)}</span>
+            <span class="score">${entry.review}/10</span>
+          </div>
+          <h3>${entry.title}</h3>
+          <p><strong>Genre:</strong> ${entry.genre}</p>
+          <p><strong>${label}:</strong> ${entry.creator}</p>
+        `;
+
+        entriesList.appendChild(card);
+
+        const listButton = document.createElement("button");
+        listButton.type = "button";
+        listButton.className = "saved-entry-item";
+        listButton.innerHTML = `
+          <span>${entry.title}</span>
+          <span>${formatType(entry.type)} • ${entry.review}/10</span>
+        `;
+
+        listButton.addEventListener("click", () => {
+          selectedEntryIndex = index;
+          searchTitleInput.value = entry.title;
+          renderSearchResult(entry);
+          editStatus.textContent = "";
+          editStatus.classList.remove("error-message");
+        });
+
+        savedEntryList.appendChild(listButton);
+      });
+    }
+
+    function renderSearchResult(entry, message) {
+      if (!entry) {
+        searchActions.classList.add("hidden");
+        editForm.classList.add("hidden");
+        searchResult.innerHTML = `
+          <h3>${message}</h3>
+          <p>Try an exact title from the stored entries list.</p>
+        `;
+        return;
+      }
+
+      const label = personLabel(entry.type);
+      searchActions.classList.remove("hidden");
+      searchResult.innerHTML = `
+        <h3>${entry.title}</h3>
+        <p><strong>Type:</strong> ${formatType(entry.type)}</p>
+        <p><strong>Genre:</strong> ${entry.genre}</p>
+        <p><strong>${label}:</strong> ${entry.creator}</p>
+        <p><strong>Review:</strong> ${entry.review}/10</p>
+      `;
+    }
+
+    addForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+
+      const title = titleInput.value.trim();
+      const genre = genreInput.value.trim();
+      const creator = creatorInput.value.trim();
+      const review = Number(reviewInput.value);
+      const type = typeInput.value;
+
+      if (!title || !genre || !creator || !Number.isInteger(review) || review < 0 || review > 10) {
+        addStatus.textContent = "Enter a title, genre, author/director, and a whole-number review from 0 to 10.";
+        addStatus.classList.add("error-message");
+        return;
+      }
+
+      entries.push({ type, title, genre, review, creator });
+      saveEntries();
+      renderEntries();
+      renderSearchResult(entries[entries.length - 1]);
+
+      addForm.reset();
+      typeInput.value = "book";
+      updateCreatorField();
+
+      addStatus.textContent = `Saved \"${title}\" to the list.`;
+      addStatus.classList.remove("error-message");
+    });
+
+    searchForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+
+      const searchValue = searchTitleInput.value.trim().toLowerCase();
+      selectedEntryIndex = entries.findIndex((entry) => entry.title.toLowerCase() === searchValue);
+      const match = selectedEntryIndex >= 0 ? entries[selectedEntryIndex] : null;
+
+      editStatus.textContent = "";
+      editStatus.classList.remove("error-message");
+
+      renderSearchResult(match, match ? "" : "No entry found");
+    });
+
+    openSearchEditButton.addEventListener("click", () => {
+      if (selectedEntryIndex < 0 || !entries[selectedEntryIndex]) {
+        return;
+      }
+
+      const entry = entries[selectedEntryIndex];
+      editTitleInput.value = entry.title;
+      editGenreInput.value = entry.genre;
+      editReviewInput.value = entry.review;
+      editCreatorInput.value = entry.creator;
+      editForm.classList.remove("hidden");
+      editStatus.textContent = `Editing \"${entry.title}\".`;
+      editStatus.classList.remove("error-message");
+    });
+
+    editForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+
+      if (selectedEntryIndex < 0 || !entries[selectedEntryIndex]) {
+        editStatus.textContent = "No matching entry was found to update.";
+        editStatus.classList.add("error-message");
+        return;
+      }
+
+      const nextTitle = editTitleInput.value.trim();
+      const nextGenre = editGenreInput.value.trim();
+      const nextCreator = editCreatorInput.value.trim();
+      const nextReview = Number(editReviewInput.value);
+
+      if (!nextTitle || !nextGenre || !nextCreator || !Number.isInteger(nextReview) || nextReview < 0 || nextReview > 10) {
+        editStatus.textContent = "Enter a title, genre, author/director, and a whole-number review from 0 to 10.";
+        editStatus.classList.add("error-message");
+        return;
+      }
+
+      const entry = entries[selectedEntryIndex];
+      entry.title = nextTitle;
+      entry.genre = nextGenre;
+      entry.creator = nextCreator;
+      entry.review = nextReview;
+
+      saveEntries();
+      renderEntries();
+      renderSearchResult(entry);
+      searchTitleInput.value = entry.title;
+      editForm.classList.add("hidden");
+
+      editStatus.textContent = `Updated \"${entry.title}\".`;
+      editStatus.classList.remove("error-message");
+    });
+
+    deleteEntryButton.addEventListener("click", () => {
+      if (selectedEntryIndex < 0 || !entries[selectedEntryIndex]) {
+        return;
+      }
+
+      const [removedEntry] = entries.splice(selectedEntryIndex, 1);
+      saveEntries();
+      renderEntries();
+      selectedEntryIndex = -1;
+      editForm.classList.add("hidden");
+      searchActions.classList.add("hidden");
+      searchResult.innerHTML = `
+        <h3>Entry deleted</h3>
+        <p>\"${removedEntry.title}\" was removed from the list.</p>
+      `;
+      editStatus.textContent = "";
+      searchTitleInput.value = "";
+    });
+
+    typeInput.addEventListener("change", updateCreatorField);
+
+    updateCreatorField();
+    renderEntries();
+  </script>
+</body>
+</html>

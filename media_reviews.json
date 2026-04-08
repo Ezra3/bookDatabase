@@ -1,0 +1,9 @@
+[
+    {
+        "type": "book",
+        "title": "asdf",
+        "genre": "asdf",
+        "review": 5,
+        "author": "asdf"
+    }
+]
