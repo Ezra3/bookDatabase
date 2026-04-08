@@ -1,4 +1,16 @@
 import json
+import os
+
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent
+DATA_FILE = BASE_DIR / "media_reviews.json"
+print("Working directory:", os.getcwd())
+
+def save_entries(entries, filename=DATA_FILE):
+    data = [entry.to_dict() for entry in entries]
+    with open(filename, "w") as file:
+        json.dump(data, file, indent=4)
 
 class Media:
     def __init__(self, title, genre, review):
@@ -56,10 +68,10 @@ def from_dict(data):
     return Media(data["title"], data["genre"], data["review"])
 
 
-def save_entries(entries, filename="media_reviews.json"):
-    data = [entry.to_dict() for entry in entries]
-    with open(filename, "w") as file:
-        json.dump(data, file, indent=4)
+#def save_entries(entries, filename="media_reviews.json"):
+    #data = [entry.to_dict() for entry in entries]
+   # with open(filename, "w") as file:
+   #     json.dump(data, file, indent=4)
 
 
 def load_entries(filename="media_reviews.json"):
@@ -67,15 +79,25 @@ def load_entries(filename="media_reviews.json"):
         with open(filename, "r") as file:
             data = json.load(file)
             return [from_dict(item) for item in data]
-    except FileNotFoundError:
+    except (FileNotFoundError, json.JSONDecodeError, ValueError, KeyError):
         return []
 
+def get_review():
+    while True:
+        try:
+            review = int(input("Review out of 10: "))
+            if 0 <= review <= 10:
+                return review
+            else:
+                print("Please enter a number from 0 to 10.")
+        except ValueError:
+            print("Please enter a whole number.")
 
 def add_entry(entries):
     kind = input("Add a movie or book? ").lower()
     title = input("Title: ")
     genre = input("Genre: ")
-    review = int(input("Review out of 10: "))
+    review = get_review()
 
     if kind == "movie":
         director = input("Director: ")
@@ -122,7 +144,14 @@ def edit_entry(entries):
             if new_genre:
                 entry.genre = new_genre
             if new_review:
-                entry.review = int(new_review)
+                try:
+                    review_num = int(new_review)
+                    if 0 <= review_num <= 10:
+                        entry.review = review_num
+                    else:
+                        print("Review must be between 0 and 10.")
+                except ValueError:
+                    print("Review must be a whole number.")
 
             if isinstance(entry, Movie):
                 new_director = input("New director (press Enter to keep same): ")
