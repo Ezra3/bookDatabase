@@ -120,16 +120,7 @@
   </div>
 
   <script>
-    const STORAGE_KEY = "mediaEntries";
-    const defaultEntries = [
-      {
-        type: "book",
-        title: "asdf",
-        genre: "asdf",
-        review: 5,
-        creator: "asdf"
-      }
-    ];
+    const API_URL = "/api/entries";
 
     const addForm = document.getElementById("add-entry-form");
     const typeInput = document.getElementById("entry-type");
@@ -157,28 +148,35 @@
 
     const entriesList = document.getElementById("entries-list");
 
-    let entries = loadEntries();
+    let entries = [];
     let selectedEntryIndex = -1;
 
-    function loadEntries() {
-      const storedEntries = localStorage.getItem(STORAGE_KEY);
+    async function loadEntries() {
+      const response = await fetch(API_URL);
 
-      if (!storedEntries) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultEntries));
-        return [...defaultEntries];
+      if (!response.ok) {
+        throw new Error("Unable to load entries.");
       }
 
-      try {
-        const parsedEntries = JSON.parse(storedEntries);
-        return Array.isArray(parsedEntries) ? parsedEntries : [...defaultEntries];
-      } catch (error) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultEntries));
-        return [...defaultEntries];
-      }
+      const loadedEntries = await response.json();
+      return Array.isArray(loadedEntries) ? loadedEntries : [];
     }
 
-    function saveEntries() {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+    async function saveEntries() {
+      const response = await fetch(API_URL, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(entries)
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.error || "Unable to save entries.");
+      }
+
+      entries = await response.json();
     }
 
     function formatType(type) {
@@ -285,7 +283,7 @@
       `;
     }
 
-    addForm.addEventListener("submit", (event) => {
+    addForm.addEventListener("submit", async (event) => {
       event.preventDefault();
 
       const title = titleInput.value.trim();
@@ -301,16 +299,23 @@
       }
 
       entries.push({ type, title, genre, review, creator });
-      saveEntries();
-      renderEntries();
-      renderSearchResult(entries[entries.length - 1]);
 
-      addForm.reset();
-      typeInput.value = "book";
-      updateCreatorField();
+      try {
+        await saveEntries();
+        renderEntries();
+        renderSearchResult(entries[entries.length - 1]);
 
-      addStatus.textContent = `Saved \"${title}\" to the list.`;
-      addStatus.classList.remove("error-message");
+        addForm.reset();
+        typeInput.value = "book";
+        updateCreatorField();
+
+        addStatus.textContent = `Saved \"${title}\" to the list.`;
+        addStatus.classList.remove("error-message");
+      } catch (error) {
+        entries.pop();
+        addStatus.textContent = error.message;
+        addStatus.classList.add("error-message");
+      }
     });
 
     searchForm.addEventListener("submit", (event) => {
@@ -341,7 +346,7 @@
       editStatus.classList.remove("error-message");
     });
 
-    editForm.addEventListener("submit", (event) => {
+    editForm.addEventListener("submit", async (event) => {
       event.preventDefault();
 
       if (selectedEntryIndex < 0 || !entries[selectedEntryIndex]) {
@@ -362,44 +367,71 @@
       }
 
       const entry = entries[selectedEntryIndex];
+      const previousEntry = { ...entry };
       entry.title = nextTitle;
       entry.genre = nextGenre;
       entry.creator = nextCreator;
       entry.review = nextReview;
 
-      saveEntries();
-      renderEntries();
-      renderSearchResult(entry);
-      searchTitleInput.value = entry.title;
-      editForm.classList.add("hidden");
+      try {
+        await saveEntries();
+        renderEntries();
+        renderSearchResult(entry);
+        searchTitleInput.value = entry.title;
+        editForm.classList.add("hidden");
 
-      editStatus.textContent = `Updated \"${entry.title}\".`;
-      editStatus.classList.remove("error-message");
+        editStatus.textContent = `Updated \"${entry.title}\".`;
+        editStatus.classList.remove("error-message");
+      } catch (error) {
+        entries[selectedEntryIndex] = previousEntry;
+        editStatus.textContent = error.message;
+        editStatus.classList.add("error-message");
+      }
     });
 
-    deleteEntryButton.addEventListener("click", () => {
+    deleteEntryButton.addEventListener("click", async () => {
       if (selectedEntryIndex < 0 || !entries[selectedEntryIndex]) {
         return;
       }
 
       const [removedEntry] = entries.splice(selectedEntryIndex, 1);
-      saveEntries();
-      renderEntries();
-      selectedEntryIndex = -1;
-      editForm.classList.add("hidden");
-      searchActions.classList.add("hidden");
-      searchResult.innerHTML = `
-        <h3>Entry deleted</h3>
-        <p>\"${removedEntry.title}\" was removed from the list.</p>
-      `;
-      editStatus.textContent = "";
-      searchTitleInput.value = "";
+
+      try {
+        await saveEntries();
+        renderEntries();
+        selectedEntryIndex = -1;
+        editForm.classList.add("hidden");
+        searchActions.classList.add("hidden");
+        searchResult.innerHTML = `
+          <h3>Entry deleted</h3>
+          <p>\"${removedEntry.title}\" was removed from the list.</p>
+        `;
+        editStatus.textContent = "";
+        searchTitleInput.value = "";
+      } catch (error) {
+        entries.splice(selectedEntryIndex, 0, removedEntry);
+        editStatus.textContent = error.message;
+        editStatus.classList.add("error-message");
+      }
     });
 
     typeInput.addEventListener("change", updateCreatorField);
 
-    updateCreatorField();
-    renderEntries();
+    async function initializeApp() {
+      updateCreatorField();
+
+      try {
+        entries = await loadEntries();
+        renderEntries();
+      } catch (error) {
+        entries = [];
+        renderEntries();
+        addStatus.textContent = error.message;
+        addStatus.classList.add("error-message");
+      }
+    }
+
+    initializeApp();
   </script>
 </body>
 </html>

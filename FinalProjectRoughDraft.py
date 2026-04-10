@@ -1,11 +1,9 @@
 import json
-import os
 
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
 DATA_FILE = BASE_DIR / "media_reviews.json"
-print("Working directory:", os.getcwd())
 
 def save_entries(entries, filename=DATA_FILE):
     data = [entry.to_dict() for entry in entries]
@@ -207,4 +205,5 @@ def main():
             print("Invalid choice.")
 
 
-main()
+if __name__ == "__main__":
+    main()

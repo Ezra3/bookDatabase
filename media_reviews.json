@@ -1,9 +1,9 @@
 [
     {
-        "type": "book",
-        "title": "asdf",
-        "genre": "asdf",
-        "review": 5,
-        "author": "asdf"
+        "type": "movie",
+        "title": "Spiderman",
+        "genre": "Action",
+        "review": 7,
+        "director": "idk"
     }
 ]
